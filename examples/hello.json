@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "hello",
+  "goal": "Provide greet(name) with whitespace normalization and empty-name rejection.",
+  "context": [
+    "examples/hello-spec.md"
+  ],
+  "steps": [
+    {
+      "id": "S1",
+      "prompt": "Create hello.py exposing greet(name): trim surrounding whitespace and return Hello, <name>!; reject empty/whitespace-only names with ValueError. Add test_hello.py covering both success and failure.",
+      "depends_on": [],
+      "checks": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "test_hello",
+          "-v"
+        ]
+      ],
+      "evidence": []
+    }
+  ]
+}

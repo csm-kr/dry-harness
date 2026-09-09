@@ -47,7 +47,9 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["model"], "gpt-6-astra")
         self.assertEqual(doc.read_text(), "existing policy")
-        self.assertFalse((self.root / ".codex").exists())
+        self.assertIn('gpt-6-astra', (self.root / '.codex/config.toml').read_text())
+        self.assertTrue((self.root / 'scripts/execute.py').is_file())
+        self.assertTrue((self.root / '.codex/hooks.json').is_file())
 
     def test_collision_is_preflighted_before_any_copy(self):
         blocked = self.root / ".agents/skills/dry-review"

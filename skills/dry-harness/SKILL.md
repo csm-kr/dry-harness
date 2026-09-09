@@ -7,6 +7,7 @@ Use Harness for the working plan and Dryforge-inspired independent checks for in
 
 - **Ready / planning:** follow [planning](references/planning.md) to turn the requested outcome into an implementable contract and phase.
 - **Run / resume:** follow [execution](references/execution.md) to deliver the selected phase through verification and repair.
+- **Setup / hooks:** the repository's `scripts/install.py` installs the executor, six base docs and Codex hooks. See [hooks](references/hooks.md) for behavior and trust setup; preserve existing project files.
 - **Review only:** use the sibling `dry-review` skill. Its [review contract](../dry-review/SKILL.md) also describes independent planning checks.
 
 Existing project contracts and explicit user decisions govern the work. Keep one canonical set of requirements and phases; adapt to the repository's paths. Do not maintain a second `.dryforge` spec beside an active Harness spec. Apply ordinary small edits directly without introducing a phase ceremony.

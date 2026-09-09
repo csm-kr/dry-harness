@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "SessionStart": [{"matcher": "startup|resume|clear|compact", "hooks": [{"type": "command", "command": "python3 .codex/hooks/dry_harness.py SessionStart", "timeout": 5}]}],
+    "SubagentStart": [{"hooks": [{"type": "command", "command": "python3 .codex/hooks/dry_harness.py SubagentStart", "timeout": 5}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3 .codex/hooks/dry_harness.py UserPromptSubmit", "timeout": 5}]}],
+    "PreToolUse": [{"matcher": "Bash|Write|Edit|shell_command|exec_command|apply_patch|exec", "hooks": [{"type": "command", "command": "python3 .codex/hooks/dry_harness.py PreToolUse", "timeout": 5}]}]
+  }
+}

@@ -1,162 +1,215 @@
 # dry-harness · Astra
 
-**Harness의 명세·단계 실행에 Dryforge에서 착안한 독립 검토를 결합한 GPT-6 Astra용 Codex 스킬 패키지입니다.**
+**Harness의 docs·단계 실행기·훅에 Dryforge 방식의 독립 검토를 결합한 GPT-6 Astra용 Codex 프레임워크입니다.**
 
-기획을 구현 가능한 계약으로 정리하고, 선택한 phase를 구현·검증·수정까지 이어갑니다. 새 기획에서는 의도와 계획을 각각 독립 검토하고, 구현이 끝나면 단계 전체의 동작과 증거를 검토합니다.
+[`csm-kr/harness-framework`](https://github.com/csm-kr/harness-framework)의 프로젝트 골격과 훅 역할을 Astra에 맞게 재구성했습니다. 짧은 스킬, 필요한 문서만 읽는 문맥 구성, 승인된 범위의 구현·검증·수정 지속이 기본입니다. 새 기획에서는 의도와 계획을 각각 독립 검토하고, 구현 후에는 누적 동작과 증거를 확인합니다.
 
-이 저장소는 재사용 가능한 스킬과 Python 도구만 제공합니다. 기존 Harness 실행기가 있으면 그대로 사용하며, 없으면 Codex가 단계별로 실행합니다. 자체 범용 step 실행기나 자동 배포기는 포함하지 않습니다.
+## 포함된 구성
+
+| 구성 | 역할 |
+| --- | --- |
+| `scripts/install.py` | 프로젝트에 스킬·실행기·기본 docs·Codex 훅 설치 및 병합 |
+| `scripts/execute.py` | 새 Astra 세션으로 step 실행, 검증, 재시도·재개, 최종 독립 리뷰 |
+| `skills/dry-harness/` | `ready` / `run` 기획·실행 안내 |
+| `skills/dry-review/` | 의도·계획·phase 독립 검토와 별도 검토 CLI |
+| `template/docs/` | PRD·USER_FLOW·ARCHITECTURE·ADR·RULES·ISSUES 기본 6개 |
+| `template/AGENTS.md` | 문서를 선택적으로 읽도록 하는 짧은 프로젝트 라우터 |
+| `template/.codex/` | Astra 기본 설정, 훅 등록과 Python 이벤트 처리기 |
+| `docs-catalog/` | DB·API·SECURITY·STATE·UI 등 선택 문서 12종 |
+| `examples/` | 실제 실행 가능한 Python phase 예제 |
+
+0.1.0에서 빠졌던 실행기·훅·docs 설치 구성을 **0.2.0에 추가**했습니다. 기존 Harness의 Claude 전용 명령이나 상태 형식을 무조건 호환한다고 가정하지 않습니다. 변경 대응표는 [Astra 전환 기록](docs/ASTRA_ADAPTATION.md)에 있습니다.
 
 ## 설치
 
-Python 3.10 이상이 필요합니다. CLI 독립 검토에는 인증된 Codex CLI와 `gpt-6-astra` 접근 권한도 필요합니다. Python 외부 패키지는 필요하지 않습니다.
+Python 3.10 이상, Git, 인증된 Codex CLI와 `gpt-6-astra` 접근 권한이 필요합니다. Python 외부 패키지와 Node는 필요하지 않습니다. 훅 설치·테스트는 macOS/Linux를 대상으로 합니다.
 
 ```bash
 git clone https://github.com/csm-kr/dry-harness.git
 cd dry-harness
 
-# /path/to/project를 실제 기존 프로젝트 경로로 바꾸세요.
+# 실제 기존 프로젝트 경로로 바꾸세요.
 python3 scripts/install.py /path/to/project
 ```
 
-다음 두 스킬을 프로젝트에 설치합니다. 프로젝트 문서, `AGENTS.md`, 모델 설정, 전역 플러그인 캐시는 수정하지 않습니다.
+새 프로젝트에 설치하면 다음 구조가 생깁니다.
 
 ```text
-your-project/.agents/skills/
-├── dry-harness/    # ready / run 안내와 필요한 참조 문서
-└── dry-review/     # 독립 검토 안내와 선택적 CLI 도구
+your-project/
+├── AGENTS.md
+├── docs/
+│   ├── PRD.md
+│   ├── USER_FLOW.md
+│   ├── ARCHITECTURE.md
+│   ├── ADR.md
+│   ├── RULES.md
+│   └── ISSUES.md
+├── scripts/execute.py
+├── .agents/skills/
+│   ├── dry-harness/       # 실행기 본체와 안내 포함
+│   └── dry-review/        # 독립 검토 도구 포함
+└── .codex/
+    ├── config.toml
+    ├── hooks.json
+    ├── hooks/dry_harness.py
+    └── dry-harness-install.json
 ```
 
-설치 후 대상 프로젝트에서 **새 Codex 세션**을 시작하세요. 같은 이름의 스킬이 이미 있으면 설치가 중단됩니다. 업데이트는 패키지에 속한 파일을 덮어쓰므로, 해당 파일에 직접 추가한 내용이 있다면 먼저 보관하세요. 별도로 추가한 파일은 유지됩니다.
+기존 `AGENTS.md`, docs, 모델 설정, 다른 실행기는 유지합니다. 기존 `hooks.json`에는 누락된 이벤트 명령만 병합합니다. 수정된 자체 훅과 충돌하면 쓰기 전에 중단합니다. 전역 설정과 훅 신뢰 기록은 변경하지 않습니다. 디스크·권한 오류에 대한 파일시스템 트랜잭션은 아니므로 복사 도중 장애가 나면 원인을 해결한 뒤 `--update`로 재실행하세요.
 
 ```bash
+# 업데이트: 스킬 파일과 수정되지 않은 패키지 관리 코드를 갱신
+# 스킬 파일에 직접 추가한 내용은 먼저 보관하세요.
 git pull --ff-only
 python3 scripts/install.py /path/to/project --update
+
+# 필요할 때만 선택 문서 추가; 이미 있는 docs는 유지
+python3 scripts/install.py /path/to/project --update --doc DB --doc API
+
+# 기존 골격을 전혀 건드리지 않고 스킬과 내부 도구만 설치
+python3 scripts/install.py /path/to/project --skills-only
 ```
 
-저장소 루트의 `.codex-plugin/plugin.json`은 Codex 플러그인 패키징용입니다. 위 프로젝트 설치와 플러그인 설치를 함께 적용할 필요는 없습니다. 이 안내는 CLI 버전에 따라 달라지는 마켓플레이스 명령 대신 프로젝트 설치를 기본으로 사용합니다.
+`.codex-plugin/plugin.json`은 플러그인 패키징 메타데이터입니다. 스킬 발견만으로 프로젝트 docs와 훅 파일이 생기는 것은 아니므로, 전체 골격은 위 설치기로 주입합니다.
 
-## Astra로 시작하기
+## Astra와 훅 시작
+
+**대상 프로젝트 루트에서** 새 세션을 시작하세요.
 
 ```bash
 cd /path/to/project
-codex --model gpt-6-astra
+codex --model gpt-6-astra --enable hooks
 ```
 
-Codex 앱에서는 모델 선택기에서 Astra를 선택한 뒤 실행하세요. **스킬 문구는 이미 열린 대화의 모델을 바꾸지 않습니다.** 이 저장소의 개발용 `.codex/config.toml`과 독립 검토 CLI의 기본값은 `gpt-6-astra`입니다. 대상 프로젝트의 모델 설정은 설치기가 변경하지 않습니다. Astra가 사용 불가하면 자동으로 다른 모델로 바꾸지 않습니다.
+Codex 앱에서는 Astra를 선택합니다. 스킬은 이미 열린 대화의 모델을 바꾸지 않습니다. 새로 생성하는 `.codex/config.toml`은 Astra와 hooks를 설정하지만, 기존 config는 보존하므로 그 설정과 충돌하면 명시적인 CLI 옵션이나 사용자의 프로젝트 설정을 따릅니다. 실행기·리뷰 CLI는 기본 모델을 Astra로 지정하며 자동 fallback을 하지 않습니다.
 
-## 사용법
+**`/hooks`에서 새로 추가되거나 변경된 훅을 확인하고 신뢰하세요.** Codex는 프로젝트 신뢰와 훅 정의의 신뢰 상태를 따릅니다. 설치 완료와 호스트에서 훅이 활성화된 상태는 다릅니다. 설치기나 실행기는 신뢰 기록을 대신 승인하거나 우회하지 않습니다. [공식 Codex 훅 안내](https://learn.chatgpt.com/docs/hooks)
 
-### 1. 기획 정리: ready
+| 이벤트 | Astra용 동작 |
+| --- | --- |
+| `SessionStart` | 필요한 문서·완료 조건만 짧게 안내하고, 주기가 된 경우에만 점검 알림 |
+| `SubagentStart` | 맡은 작업 안에서 간결한 구현을 유지하도록 짧게 안내 |
+| `UserPromptSubmit` | `$dry-harness mode lean` / `$dry-harness mode off`로 세션 안내 모드 전환 |
+| `PreToolUse` | 위험 명령·흔한 `.env` 출력 방지, 데이터/권한 변경 시 검증 안내 |
+
+원본의 TDD 훅은 테스트 파일 이름만 보고 코드 편집을 막던 방식에서 **실제 검증을 돕는 안내**로 바꿨습니다. 완료 판정은 실행기의 검사와 독립 리뷰가 담당합니다. 매 종료 전체 테스트를 실행하는 Stop 훅은 넣지 않았습니다. 주간 알림은 `DRY_HARNESS_WEEKLY_DAYS=0`으로 끌 수 있습니다.
+
+훅은 모든 셸 표현이나 비밀 유출 경로를 막는 보안 경계가 아닙니다. 구체적인 차단 패턴과 동작은 [훅 안내](skills/dry-harness/references/hooks.md)에 있습니다.
+
+## 1. 기획 정리: ready
 
 ```text
 $dry-harness ready로 plan.md를 읽고 구현 명세와 실행 계획을 만들어줘.
 이미 결정한 정책은 유지하고, 구현에 꼭 필요한 미결정 사항만 질문해줘.
+기본 docs를 채우고 scripts/execute.py가 실행할 phase JSON까지 만들어줘.
 ```
 
-기존 문서가 있으면 그 문서를 정본으로 사용합니다. 새 프로젝트에서는 기본적으로 `docs/SPEC.md`에 행동 계약을, `phases/<name>.md`에 단계 계획을 작성합니다. `ready`는 스킬의 작업 모드이며 터미널 명령이 아닙니다.
+`ready`는 대화에서 사용하는 작업 모드입니다. 템플릿에는 확정되지 않은 정책을 미리 넣지 않습니다. 관련 docs를 실제 결정으로 채우고, 필요한 경우 `docs/SPEC.md`를 추가합니다. 번들 실행기용 계획은 `phases/<name>.json`으로 작성합니다.
 
-중요한 새 기획·정책 변경은 작성하지 않은 별도 리뷰어가 두 번 확인합니다.
+중요한 새 기획·정책 변경은 작성하지 않은 리뷰어가 두 관점으로 확인합니다.
 
 | 검토 | 입력 | 확인하는 것 |
 | --- | --- | --- |
-| 의도 | 관련 사용자 발언·결정 기록·요구사항 | 임의로 정한 제품 정책, 누락된 결정 |
-| 계획 | 완성된 명세·단계 계획·관련 코드 | 요구사항 누락, 실행 불가능한 계약, 부족한 검증 |
+| 의도 | 관련 사용자 원문·결정 기록·요구사항 | 임의로 정한 정책, 누락된 결정 |
+| 계획 | 완성된 명세·phase·관련 코드 | 요구사항 연결, 의존성, 검증의 실효성 |
 
-검토 결과는 조정자가 판단합니다. 제안을 모두 강제하거나, 이미 승인된 내용을 다시 승인받는 절차를 만들지 않습니다. 기획만 요청하면 문서 작성까지 완료하고, 구현까지 허용했다면 필요한 검토 후 계속 진행합니다.
+기획만 요청하면 사용 가능한 문서까지 마무리합니다. 구현도 이미 허용했다면 필요한 검토 후 계속 진행하며, 이미 결정한 내용에 새 승인을 요구하지 않습니다. 작은 수정마다 새 phase나 두 기획 검토를 강제하지 않습니다.
 
-### 2. 구현과 재개: run
+## 2. 구현·검증·재개: execute
 
-```text
-$dry-harness run으로 phases/01-core.md를 구현해줘.
-동작 확인과 영향받는 테스트, 실패 수정, phase 독립 검토까지 완료해줘.
+실제 실행에는 **대상 프로젝트 루트의 Git 저장소와 초기 커밋**이 필요합니다. 먼저 실제 프로젝트 문서·명령을 준비하세요. 초기 커밋에는 시크릿과 개인 자료를 포함하지 않습니다.
+
+```bash
+cd /path/to/project
+
+# 형식·경로 확인: 모델 호출, Git·상태 쓰기 없음
+python3 scripts/execute.py phases/01-core.json --dry-run
+
+# 한 단계씩 실행; 한 단계 성공은 phase 완료와 다릅니다.
+python3 scripts/execute.py phases/01-core.json --max-steps 1
+
+# 남은 단계 → 최종 통합 검사 → 읽기 전용 독립 리뷰
+python3 scripts/execute.py phases/01-core.json
+
+# 실패 원인 확인 후 재시도 (기본 최대 3회)
+python3 scripts/execute.py phases/01-core.json --retry
+
+# 모든 step이 검증된 상태에서 독립 리뷰
+python3 scripts/execute.py phases/01-core.json --review
+
+# 외부에서 코드/증거를 고친 뒤 재검증·리뷰
+python3 scripts/execute.py phases/01-core.json --reverify --review
 ```
 
+대화에서 실행과 실패 수정을 함께 맡겨도 됩니다.
+
 ```text
-$dry-harness run으로 현재 phase를 재개해줘.
-마지막 검증 이후 변경된 코드와 남은 차단 사유부터 확인해줘.
+$dry-harness run으로 phases/01-core.json을 실행해줘.
+구현·검증·실패 수정·독립 리뷰까지 완료하고 실제 외부 증거가 부족하면 구체적으로 알려줘.
 ```
 
-기존 실행기가 있으면 해당 저장소의 명령·상태 규칙을 따릅니다. 없다면 Codex가 단계별 결과와 검증 증거를 phase 문서에 기록합니다. 에이전트의 완료 메시지만으로 통과 처리하지 않으며, 실제 API·기기·사용 기간 관찰이 필요한 작업은 그 증거가 있어야 완료됩니다.
+각 step은 새 `codex exec --model gpt-6-astra` 세션입니다. 모델이 완료를 보고해도 실행기가 선언된 `checks`를 별도 프로세스로 실행하고 `evidence`를 확인해야 완료로 기록합니다. 마지막에는 모든 phase 검사를 통합된 코드에 다시 적용한 뒤 별도 읽기 전용 리뷰를 실행합니다.
 
-일상적인 작은 수정은 평소처럼 요청하세요. 매번 새 phase나 두 번의 기획 검토를 만들지 않습니다.
+리뷰에서 수정 요청이 나오면 조정자가 해당 문제를 고친 뒤 `--reverify --review`로 이어갑니다. 실행기는 완료 상태를 조작하거나 요구사항을 약화하는 변경을 거부합니다. 정당하게 명세를 바꿨다면 내용을 검토한 후 `--reset`으로 새 계약의 실행을 시작합니다. 실패한 코드 변경은 자동 삭제하지 않습니다.
 
-### 3. 검토만 하기: review
+상태·로그는 `$(git rev-parse --absolute-git-dir)/dry-harness/<phase-id>/`에 보관합니다. 일반적으로 `.git/dry-harness/`이며 Git worktree에서도 해당 Git 메타데이터 경로를 사용합니다. 원시 로그에 프로젝트 내용이 들어갈 수 있으므로 공개하지 마세요. 코드와 선언된 증거가 바뀌면 기존 완료 판정을 재사용하지 않습니다.
+
+| 종료 코드 | 의미 |
+| --- | --- |
+| `0` | 명령 성공. `--dry-run`·`--max-steps`에서는 전체 완료를 뜻하지 않음 |
+| `1` | 구현/검사 실패 또는 리뷰 수정 요청 |
+| `2` | 필수 입력·환경·증거 부족, 잘못된 설정 등 |
+| `130` | 사용자 중단 |
+
+기본 제한은 호출/검사당 1800초, step당 3회입니다. `--timeout`, `--attempts`, `--model`로 명시 변경할 수 있습니다. blocked 결과는 무조건 반복하지 않습니다. 자동 commit·push·배포는 하지 않습니다.
+
+**phase 형식과 전제는 [실행기 계약](skills/dry-harness/references/executor.md)을 확인하세요.** 각 검사는 argv 배열이고 현재 사용자 권한·환경으로 실행되므로, 프로젝트에서 검토한 로컬 검증 명령을 넣으세요. 원본 Harness의 `phases/<name>/index.json` 형식은 자동 변환하지 않습니다. 기존 실행기가 있으면 유지하거나 명시적으로 새 형식으로 옮깁니다. 실행 범위는 한 phase이며 phase 간 선행 조건은 조정자가 확인합니다.
+
+## 3. 독립 리뷰만 실행
 
 ```text
 $dry-review로 현재 phase의 누적 변경을 독립 검토해줘.
 명세, 실제 코드와 테스트 결과를 대조하고 파일은 수정하지 마.
 ```
 
-작성 에이전트가 이 요청을 받으면 새로운 읽기 전용 리뷰어를 사용합니다. 새 리뷰어를 실행할 수 없는 환경에서는 검토가 수행되지 않았다고 표시합니다. 같은 에이전트가 다시 읽은 것을 독립 검토로 간주하지 않습니다.
-
-## 독립 검토 CLI
-
-호스트의 하위 에이전트를 사용할 수 없거나, 별도 Codex 세션으로 검토를 재현하려면 설치된 도구를 사용할 수 있습니다. 입력 파일은 프로젝트 안의 UTF-8 파일이며, `--input`을 반복해 지정합니다.
+별도 CLI로 실행할 수도 있습니다. `--input`은 프로젝트 안의 UTF-8 파일이며 반복할 수 있습니다.
 
 ```bash
-cd /path/to/project
-
-# 입력 경로 확인: 모델 호출과 파일 쓰기 없음
 python3 .agents/skills/dry-review/scripts/review.py plan \
-  --input docs/SPEC.md --input phases/01-core.md --dry-run
+  --input docs/PRD.md --input phases/01-core.json
 
-# 새 Astra 세션에서 계획 독립 검토
-python3 .agents/skills/dry-review/scripts/review.py plan \
-  --input docs/SPEC.md --input phases/01-core.md
-
-# 의도 검토: 필요한 발언·결정만 별도 파일로 준비
 python3 .agents/skills/dry-review/scripts/review.py intent \
-  --input docs/review-input.md --input docs/SPEC.md
+  --input docs/review-input.md --input docs/PRD.md
 
-# phase 검토: 계약, 실제 diff 또는 비교할 기준, 관찰 결과를 함께 제공
 python3 .agents/skills/dry-review/scripts/review.py phase \
-  --input phases/01-core.md --input docs/validation/01-core.md
+  --input phases/01-core.json --input docs/validation/01-core.md
 ```
 
-phase의 입력에는 검토할 변경 범위(예: 기준 커밋과 현재 변경), 관련 명세 경로와 검증 증거를 적으세요. 리뷰어는 필요한 실제 코드도 읽습니다. 의도 검토 입력은 관련 원문 발언을 유지하되 불필요한 사적 대화는 넣지 마세요. 입력과 필요한 코드가 Codex 모델에 전달됩니다. `read-only`는 쓰기 제한이며 비밀정보 읽기를 차단하는 별도 격리 장치는 아닙니다.
+의도 검토에는 필요한 원문 발언만, phase 검토에는 기준 커밋/변경 범위와 실제 증거를 제공하세요. 출력은 `verdict`, `summary`, `findings` JSON입니다. `clear`는 검사한 범위에서 blocking이 없다는 뜻이며 전체 제품 완성 보장은 아닙니다. 종료 코드는 `clear=0`, `changes_required=1`, `blocked/실행불가=2`입니다.
 
-출력은 `verdict`, `summary`, `findings` JSON입니다. 각 finding에는 심각도, 위치, 근거, 영향, 개선 방향이 포함됩니다.
+독립 검토는 작성에 참여하지 않은 새 세션에서 수행합니다. 새 리뷰어를 실행할 수 없으면 미수행이라고 표시합니다. 실제 API·기기 관찰을 모델의 추측이나 단위 테스트로 대체하지 않습니다. 읽기 전용 sandbox도 비밀정보 읽기를 차단하는 별도 격리 장치는 아닙니다.
 
-| 종료 코드 | 의미 |
-| --- | --- |
-| `0` | 검토 범위에서 blocking 발견 없음. `--dry-run`에서는 경로 검사 성공만 의미 |
-| `1` | 수정이 필요한 blocking 발견 |
-| `2` | 증거 부족, 인증·모델·입력 오류 또는 시간 초과로 검토 불가 |
+## 예제 실행
 
-기본 시간 제한은 600초입니다. `--timeout 1200`으로 바꿀 수 있습니다. 모델을 의도적으로 바꿀 때만 `--model <model-id>`를 지정하세요. 호출 실패 시 재시도나 모델 대체는 자동으로 수행하지 않습니다. 도구는 `read-only` sandbox와 새 세션을 사용하고, 검사한 결과의 형식·판정 일관성도 확인합니다. JSON의 근거가 사실인지는 조정자가 실제 자료와 대조해야 합니다.
+`examples/hello.json`은 stdlib 함수 하나와 테스트를 만드는 작은 실행 예제입니다. 다른 제품과 섞지 않도록 **별도 임시 프로젝트**를 준비하고 전체 설치 후 `examples/hello.json`, `examples/hello-spec.md`를 복사하세요. 초기 Git 커밋 뒤 다음을 실행합니다.
 
-원시 CLI 로그와 임시 결과는 비공개 임시 디렉터리에 생성한 뒤 제거합니다. 이 도구는 프로젝트 완료 상태를 바꾸거나 커밋·push하지 않습니다. Codex 자체의 인증·호스트 정책은 그대로 적용됩니다.
+```bash
+python3 scripts/execute.py examples/hello.json --dry-run
+python3 scripts/execute.py examples/hello.json
+```
 
-## 기존 Harness / Dryforge 프로젝트에 적용
+## Astra에 맞게 바꾼 점
 
-1. 현재 `AGENTS.md`가 가리키는 명세·계획 경로와 실행기를 유지합니다.
-2. `ready`는 기존 결정을 다시 묻지 않고, 바뀌는 요구사항만 갱신합니다.
-3. 기존 phase 실행과 검증 뒤에 `dry-review`를 연결합니다. 이미 독립 누적 검토가 있으면 중복 추가하지 않습니다.
-4. `.dryforge`와 `docs`를 동시에 수정하는 두 개의 정본을 만들지 않습니다. 이전 문서를 보관할 경우 현재 정본으로 향하는 링크를 남깁니다.
+[Eric Provencher의 Astra 글](https://x.com/pvncher/article/2095991462416490862)에 따라 스킬 설명을 짧게 하고, 관련 문서만 읽으며, 승인된 구현·검증·수정까지 이어가도록 했습니다. 기존 명세를 한 곳에서 관리하고, 작은 변경에 전체 문서 읽기·재승인·무조건적인 테스트 순서를 요구하지 않습니다.
 
-프로젝트 전용 스킬이 같은 역할을 맡고 있다면 위 지침을 그 스킬에 통합해도 됩니다. 사용하지 않는 스킬을 함께 설치할 필요는 없습니다.
+원본의 기본 docs 6개와 선택 카탈로그 역할은 유지하면서 특정 웹 스택 기본값, 모든 docs 강제 주입, 반복 이슈의 자동 규칙 승격, 전역 모드 변경을 제거했습니다. 실제 변화의 범위와 근거는 [전환 기록](docs/ASTRA_ADAPTATION.md)을 확인하세요.
 
-## 글에서 반영한 내용
-
-Eric Provencher의 [Rethinking skills and prompts for GPT-6 Astra](https://x.com/pvncher/article/2095991462416490862)를 읽고 다음과 같이 적용했습니다.
-
-- 짧은 스킬 설명과 적용 상황에 맞춘 선택.
-- `SKILL.md`는 짧은 안내로, 기획·실행 세부는 필요할 때만 읽는 참조 문서로 분리.
-- 매 수정마다 전체 문서 읽기·전체 테스트·새 승인을 요구하는 규칙 제거.
-- 구현 레시피보다 완료 조건을 정의하고, 허용된 범위의 검증·수정까지 계속 진행.
-
-이는 글의 조언을 적용한 설계입니다. Astra의 성능·비용 우위를 측정한 벤치마크는 아닙니다. 실제 검증 범위는 [검증 기록](docs/VALIDATION.md)에 적습니다.
-
-## 개발·검증
+## 검증과 출처
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-테스트는 임시 프로젝트와 가짜 CLI 응답을 사용하며 실제 모델을 호출하지 않습니다. 설치 충돌·경로 이탈·업데이트, 검토 판정·CLI 실패·모델 인자 전달을 검사합니다.
+오프라인 테스트는 임시 프로젝트와 가짜 모델 응답을 사용합니다. 실제 Astra 호출은 별도 스모크 검증입니다. [검증 기록](docs/VALIDATION.md)에 실행한 범위와 한계를 적습니다. Astra의 성능·비용 우위를 측정한 벤치마크는 아닙니다.
 
-## 출처와 라이선스
-
-[jha0313/harness_framework](https://github.com/jha0313/harness_framework)의 단계 실행 방식과 [Dryforge](https://github.com/prekuter/dryforge)의 작성자와 분리된 의도·산출물 검토에서 착안했습니다. 이 저장소의 스킬과 Python 도구는 새로 작성했으며, 두 프로젝트의 소스·스킬 본문을 복사해 배포하지 않습니다. 원 프로젝트의 공식 배포판이나 OpenAI 공식 플러그인은 아닙니다.
-
-이 저장소에서 작성한 내용은 [MIT License](LICENSE)로 제공합니다. 링크된 프로젝트와 글에는 각각의 저작권·이용 조건이 적용됩니다.
+설계 출처: [csm-kr/harness-framework](https://github.com/csm-kr/harness-framework), [jha0313/harness_framework](https://github.com/jha0313/harness_framework), [Dryforge](https://github.com/prekuter/dryforge). 이 저장소의 Python 도구와 Astra 지침·문서 템플릿은 새로 작성했으며 원본의 전체 소스나 Ponytail 번들을 재배포하지 않습니다. 원 프로젝트 또는 OpenAI의 공식 배포판은 아닙니다. 이 저장소에서 작성한 내용은 [MIT](LICENSE), 링크된 자료에는 각각의 이용 조건이 적용됩니다.

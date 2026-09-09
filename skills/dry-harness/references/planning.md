@@ -2,7 +2,7 @@
 
 Start with the user's outcome, current decisions, and the relevant existing documents. A source plan is useful input; distinguish confirmed decisions, proposals, and unresolved questions. Preserve explicit decisions. Surface a material conflict rather than silently inventing product policy. Record independent work that can proceed while a decision is pending.
 
-For a new project, use `docs/SPEC.md` for behavior and `phases/<name>.md` for the plan. Reuse an existing repository's equivalents instead. Add architecture, user-flow, or decision documents only when the task needs them; avoid empty document scaffolds.
+The full installer supplies Harness's six base document templates in `docs/`. Fill relevant sections from actual decisions; template prompts are not settled requirements. Add a dedicated `docs/SPEC.md` if behavior contracts need more detail. For the bundled runner, write `phases/<name>.json` using the [executor contract](executor.md). Reuse an existing repository's equivalents and runner format when present. Add optional documents only when useful.
 
 Make each requirement observable: trigger, expected outcome, important failure behavior, and required evidence. For stateful or external actions, address the relevant ownership, lifecycle, retry, and cancellation behavior. Scope this work to the requested feature, not every hypothetical future feature.
 
@@ -15,7 +15,7 @@ These independent checks are part of this workflow; delegate them when tools sup
 
 Resolve findings at their source. Recheck the affected area when a fix changes the contract; do not repeat clean reviews without cause. A reviewer suggestion is evidence to assess, not an authority to invent user intent or expand scope.
 
-The phase should name its goal, requirement IDs, dependencies, deliverable steps, meaningful checks, and any real-world evidence required. Each step has a useful outcome and links to its requirements. Cover every in-scope requirement; remove tasks with no requirement. Use the repository's executable format if it has a runner; otherwise this small Markdown form suffices:
+The phase should name its goal, requirement IDs, dependencies, deliverable steps, meaningful checks, and any real-world evidence required. Each step has a useful outcome and links to its requirements. Cover every in-scope requirement; remove tasks with no requirement. The bundled executor requires JSON; the following Markdown is only for planning-only work or an existing workflow that uses it:
 
 ```markdown
 # Phase: <name>

@@ -1,7 +1,7 @@
 {
   "name": "dry-harness",
-  "version": "0.1.0",
-  "description": "Astra용 경량 개발 워크플로우: Harness 실행과 독립 의도·계획·구현 검토.",
+  "version": "0.2.0",
+  "description": "Astra용 Harness: 실행기, docs, Codex 훅과 Dryforge 방식의 독립 검토.",
   "author": {
     "name": "csm-kr",
     "url": "https://github.com/csm-kr"
@@ -12,7 +12,7 @@
   "interface": {
     "displayName": "Dry Harness · Astra",
     "shortDescription": "기획부터 검증까지, 짧은 지침과 독립 검토.",
-    "longDescription": "기존 프로젝트 명세와 실행기를 활용하고, 필요한 시점에 독립 검토를 더하는 GPT-6 Astra용 Codex 스킬 패키지입니다.",
+    "longDescription": "기획·명세·단계 실행·독립 검토를 연결하고 프로젝트별 docs와 Codex 훅을 설치하는 GPT-6 Astra용 프레임워크입니다.",
     "developerName": "csm-kr",
     "category": "Productivity",
     "capabilities": [
